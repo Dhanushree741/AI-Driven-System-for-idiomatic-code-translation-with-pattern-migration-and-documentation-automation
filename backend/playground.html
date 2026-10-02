@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Code Playground</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 30px;
+        }
+        
+        .playground {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .playground-header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 25px 30px;
+        }
+        
+        .playground-header h2 {
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .playground-content {
+            padding: 30px;
+        }
+        
+        .code-editor {
+            width: 100%;
+            height: 280px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            border-radius: 12px;
+            border: 2px solid #e0e0e0;
+            background: #282c34;
+            color: #abb2bf;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        .code-editor:focus {
+            outline: none;
+            border-color: #38ef7d;
+        }
+        
+        .code-editor::placeholder {
+            color: #5c6370;
+        }
+        
+        .run-btn {
+            margin-top: 20px;
+            padding: 15px 45px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .run-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(56, 239, 125, 0.4);
+        }
+        
+        .run-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .output-box {
+            margin-top: 25px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .output-box h3 {
+            background: #2d2d2d;
+            color: #569cd6;
+            padding: 12px 20px;
+            margin: 0;
+            font-size: 1rem;
+        }
+        
+        .output-box pre {
+            margin: 0;
+            padding: 20px;
+            color: #4ec9b0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 80px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .output-box .error {
+            color: #f14c4c;
+        }
+        
+        .output-box .exit-code {
+            color: #dcdcaa;
+            border-top: 1px solid #3d3d3d;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        function Playground() {
+            const [code, setCode] = React.useState("print('Hello World!')\nprint(2 + 2)");
+            const [output, setOutput] = React.useState("");
+            const [loading, setLoading] = React.useState(false);
+
+            const runCode = async () => {
+                if (!code.trim()) {
+                    alert("Please enter code");
+                    return;
+                }
+
+                setLoading(true);
+                setOutput("Running...");
+
+                try {
+                    const response = await axios.post(
+                        "http://127.0.0.1:5000/run",
+                        { code: code }
+                    );
+
+                    const result = response.data.result;
+                    let outputText = "";
+                    
+                    if (result.stdout) {
+                        outputText += `Output:\n${result.stdout}`;
+                    }
+                    
+                    if (result.stderr) {
+                        outputText += (outputText ? "\n" : "") + `Errors:\n${result.stderr}`;
+                    }
+                    
+                    if (!result.stdout && !result.stderr) {
+                        outputText = "(No output)";
+                    }
+                    
+                    outputText += `\n\nExit Code: ${result.returncode}`;
+                    
+                    setOutput(outputText);
+
+                } catch (error) {
+                    setOutput(`Execution Error: ${error.message}`);
+                }
+
+                setLoading(false);
+            };
+
+            return (
+                <div className="playground">
+                    <div className="playground-header">
+                        <h2>⚡ Live Code Playground</h2>
+                    </div>
+                    
+                    <div className="playground-content">
+                        <textarea
+                            className="code-editor"
+                            placeholder="Write Python code here..."
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                        />
+
+                        <button onClick={runCode} className="run-btn" disabled={loading}>
+                            {loading ? "⏳ Running..." : "▶ Run Code"}
+                        </button>
+
+                        <div className="output-box">
+                            <h3>📟 Output</h3>
+                            <pre>{output || "Run code to see output here..."}</pre>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Playground />);
+    </script>
+</body>
+</html>
+

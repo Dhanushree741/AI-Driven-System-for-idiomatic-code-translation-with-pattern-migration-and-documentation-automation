@@ -1,0 +1,766 @@
+<!DlOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Translator & Playground</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --bg-card: #16161f;
+            --border-light: #2a2a3a;
+            --border-highlight: #3d3d55;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-tertiary: #ec4899;
+            --accent-cyan: #22d3ee;
+            --accent-emerald: #34d399;
+            --accent-amber: #fbbf24;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --glow-primary: rgba(99, 102, 241, 0.4);
+            --glow-secondary: rgba(139, 92, 246, 0.4);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+            background-image: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(139, 92, 246, 0.1), transparent);
+        }
+        
+        .container { max-width: 1500px; margin: 0 auto; }
+        
+        /* ===== HEADER ===== */
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), var(--accent-secondary), transparent);
+        }
+        
+        .header-content { display: flex; align-items: center; justify-content: space-between; }
+        
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        
+        .logo {
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 8px 32px var(--glow-primary);
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 8px 32px var(--glow-primary); }
+            50% { box-shadow: 0 8px 40px var(--glow-secondary); }
+        }
+        
+        .header-title h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+        
+        .header-title p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 2px;
+        }
+        
+        .badge {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 8px 18px;
+            border-radius: 24px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 18px;
+            background: var(--bg-secondary);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            width: fit-content;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tab:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
+        .tab.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            box-shadow: 0 4px 16px var(--glow-primary);
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* ===== LANGUAGE BAR ===== */
+        .lang-bar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            padding: 18px 24px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .lang-group { display: flex; align-items: center; gap: 12px; }
+        
+        .lang-label {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        
+        .lang-select {
+            padding: 12px 18px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            min-width: 160px;
+            transition: all 0.2s;
+        }
+        
+        .lang-select:hover { border-color: var(--accent-primary); }
+        .lang-select:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+        
+        .arrow-box {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 20px var(--glow-primary);
+        }
+        
+        /* ===== CODE GRID ===== */
+        .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+        
+        .code-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            overflow: hidden;
+            transition: all 0.25s;
+        }
+        
+        .code-panel:hover { border-color: var(--border-highlight); }
+        
+        .code-header {
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .code-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .code-title .icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        
+        .code-title .icon.input { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
+        .code-title .icon.output { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); }
+        
+        .copy-btn {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 12px var(--glow-primary);
+        }
+        
+        .copy-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px var(--glow-primary); }
+        
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border: none;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: none;
+        }
+        
+        textarea:focus { outline: none; }
+        textarea::placeholder { color: var(--text-muted); }
+        
+        /* ===== BUTTONS ===== */
+        .btn-row { display: flex; gap: 12px; margin-bottom: 20px; }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn-translate {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            box-shadow: 0 4px 20px var(--glow-primary);
+        }
+        
+        .btn-run {
+            background: linear-gradient(135deg, var(--accent-emerald), #059669);
+            color: white;
+            box-shadow: 0 4px 20px rgba(52, 211, 153, 0.3);
+        }
+        
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); }
+        
+        /* ===== STATUS ===== */
+        .status {
+            padding: 14px 20px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .status.success { background: rgba(52, 211, 153, 0.12); color: var(--accent-emerald); border: 1px solid rgba(52, 211, 153, 0.25); }
+        .status.error { background: rgba(248, 113, 113, 0.12); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.25); }
+        .status.info { background: rgba(99, 102, 241, 0.12); color: var(--accent-primary); border: 1px solid rgba(99, 102, 241, 0.25); }
+        
+        /* ===== ANALYSIS HEADER ===== */
+        .analysis-tools-header {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+        }
+        
+        /* ===== ANALYSIS SECTIONS ===== */
+        .analysis-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            transition: all 0.25s;
+        }
+        
+        .analysis-section:hover { border-color: var(--border-highlight); }
+        
+        .analysis-header {
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .analysis-header .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+        
+        .analysis-header.code { border-left: 3px solid var(--accent-primary); }
+        .analysis-header.code .icon { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
+        
+        .analysis-header.alternatives { border-left: 3px solid var(--accent-cyan); }
+        .analysis-header.alternatives .icon { background: rgba(34, 211, 238, 0.15); color: var(--accent-cyan); }
+        
+        .analysis-header.explanation { border-left: 3px solid var(--accent-secondary); }
+        .analysis-header.explanation .icon { background: rgba(139, 92, 246, 0.15); color: var(--accent-secondary); }
+        
+        .analysis-header.patterns { border-left: 3px solid var(--accent-emerald); }
+        .analysis-header.patterns .icon { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); }
+        
+        .analysis-body {
+            padding: 16px 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .analysis-body .empty { color: var(--text-muted); font-style: italic; font-family: 'Inter', sans-serif; }
+        
+        /* ===== EXECUTION ===== */
+        .execution-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            margin-top: 18px;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .execution-box h3 {
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .execution-box h3 i { color: var(--accent-emerald); }
+        .execution-box pre { padding: 16px; color: var(--accent-emerald); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; }
+        .execution-box .stderr { color: #f87171; }
+        
+        /* ===== PLAYGROUND ===== */
+        .playground-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            padding: 24px;
+        }
+        
+        .playground-header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+        .playground-header i { color: var(--accent-emerald); font-size: 1.3rem; }
+        .playground-header h2 { font-size: 1.2rem; font-weight: 600; }
+        .playground-panel > p { color: var(--text-muted); margin-bottom: 16px; font-size: 0.9rem; }
+        
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1000px) {
+            .code-grid { grid-template-columns: 1fr; }
+            .header-content { flex-direction: column; gap: 16px; align-items: flex-start; }
+            .lang-bar { flex-wrap: wrap; }
+            .tabs { width: 100%; }
+            .btn-row { flex-direction: column; }
+        }
+        
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo"><i class="fas fa-code"></i></div>
+                    <div class="header-title">
+                        <h1>Code Translator & Playground</h1>
+                        <p>Translate code between languages instantly with AI-powered analysis</p>
+                    </div>
+                </div>
+                <div class="badge">AI Powered</div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('translator')"><i class="fas fa-language"></i> Translator</button>
+            <button class="tab" onclick="switchTab('playground')"><i class="fas fa-play"></i> Live Playground</button>
+        </div>
+        
+        <!-- Translator Tab -->
+        <div id="translator-tab" class="tab-content active">
+            <!-- Language Selector -->
+            <div class="lang-bar">
+                <div class="lang-group">
+                    <span class="lang-label">From</span>
+                    <select id="sourceLanguage" class="lang-select">
+                        <option value="Python">🐍 Python</option>
+                        <option value="JavaScript">💛 JavaScript</option>
+                        <option value="TypeScript">💙 TypeScript</option>
+                        <option value="Java">☕ Java</option>
+                        <option value="C++">⚡ C++</option>
+                        <option value="C#">🔷 C#</option>
+                        <option value="Go">🐹 Go</option>
+                        <option value="Rust">🦀 Rust</option>
+                        <option value="Kotlin">🟣 Kotlin</option>
+                        <option value="Swift">🍎 Swift</option>
+                        <option value="Ruby">💎 Ruby</option>
+                        <option value="PHP">🐘 PHP</option>
+                        <option value="C">🖥️ C</option>
+                    </select>
+                </div>
+                <div class="arrow-box"><i class="fas fa-arrow-right-arrow-left"></i></div>
+                <div class="lang-group">
+                    <span class="lang-label">To</span>
+                    <select id="targetLanguage" class="lang-select">
+                        <option value="JavaScript">💛 JavaScript</option>
+                        <option value="Python">🐍 Python</option>
+                        <option value="TypeScript">💙 TypeScript</option>
+                        <option value="Java">☕ Java</option>
+                        <option value="C++">⚡ C++</option>
+                        <option value="C#">🔷 C#</option>
+                        <option value="Go">🐹 Go</option>
+                        <option value="Rust">🦀 Rust</option>
+                        <option value="Kotlin">🟣 Kotlin</option>
+                        <option value="Swift">🍎 Swift</option>
+                        <option value="Ruby">💎 Ruby</option>
+                        <option value="PHP">🐘 PHP</option>
+                        <option value="C">🖥️ C</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Code Panels -->
+            <div class="code-grid">
+                <div class="code-panel">
+                    <div class="code-header">
+                        <span class="code-title"><span class="icon input"><i class="fas fa-code"></i></span> Source Code</span>
+                    </div>
+                    <textarea id="sourceCode" placeholder="Enter your code here..."></textarea>
+                </div>
+                <div class="code-panel">
+                    <div class="code-header">
+                        <span class="code-title"><span class="icon output"><i class="fas fa-code-branch"></i></span> Translated Code</span>
+                        <button class="copy-btn" onclick="copyCode()"><i class="fas fa-copy"></i> Copy</button>
+                    </div>
+                    <textarea id="translatedCode" placeholder="Translation will appear here..."></textarea>
+                </div>
+            </div>
+            
+            <!-- Buttons -->
+            <div class="btn-row">
+                <button class="btn btn-translate" onclick="translateCode()"><i class="fas fa-language"></i> Translate Code</button>
+                <button class="btn btn-run" onclick="runCode()"><i class="fas fa-play"></i> Run Translated</button>
+            </div>
+            
+            <!-- Status -->
+            <div id="status"></div>
+            
+            <!-- Analysis Tools -->
+            <div class="analysis-tools-header">Analysis Tools</div>
+            
+            <!-- Analysis Sections -->
+            <div class="analysis-section">
+                <div class="analysis-header code">
+                    <span class="icon"><i class="fas fa-code"></i></span>
+                    <span>Code</span>
+                </div>
+                <div class="analysis-body" id="output-code">
+                    <span class="empty">Translation will appear here after clicking Translate...</span>
+                </div>
+            </div>
+            
+            <div class="analysis-section">
+                <div class="analysis-header alternatives">
+                    <span class="icon"><i class="fas fa-lightbulb"></i></span>
+                    <span>Alternatives</span>
+                </div>
+                <div class="analysis-body" id="output-alternatives">
+                    <span class="empty">Click Translate to see alternative implementations...</span>
+                </div>
+            </div>
+            
+            <div class="analysis-section">
+                <div class="analysis-header explanation">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span>Explanation</span>
+                </div>
+                <div class="analysis-body" id="output-explanation">
+                    <span class="empty">Click Translate to analyze code...</span>
+                </div>
+            </div>
+            
+            <div class="analysis-section">
+                <div class="analysis-header patterns">
+                    <span class="icon"><i class="fas fa-project-diagram"></i></span>
+                    <span>Patterns</span>
+                </div>
+                <div class="analysis-body" id="output-patterns">
+                    <span class="empty">Click Translate to detect patterns...</span>
+                </div>
+            </div>
+            
+            <!-- Execution Output -->
+            <div class="execution-box" id="execution-output">
+                <h3><i class="fas fa-terminal"></i> Execution Output</h3>
+                <pre id="execution-content"></pre>
+            </div>
+        </div>
+        
+        <!-- Playground Tab -->
+        <div id="playground-tab" class="tab-content">
+            <div class="playground-panel">
+                <div class="playground-header">
+                    <i class="fas fa-play-circle"></i>
+                    <h2>Live Python Playground</h2>
+                </div>
+                <p>Write and run Python code instantly!</p>
+                <textarea id="playgroundCode" placeholder="# Write Python code here..."></textarea>
+                <div class="btn-row">
+                    <button class="btn btn-run" onclick="runPlayground()"><i class="fas fa-play"></i> Run Code</button>
+                </div>
+                <div class="execution-box" style="display: block; margin-top: 16px;" id="playground-output">
+                    <h3><i class="fas fa-terminal"></i> Output</h3>
+                    <pre id="playground-result">Run code to see output...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let translatedCode = '';
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (tab === 'translator') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('translator-tab').classList.add('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('playground-tab').classList.add('active');
+            }
+        }
+        
+        function showStatus(type, msg) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + type;
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+        
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+        
+        function setOutput(id, content) {
+            document.getElementById(id).textContent = content || 'No data available';
+        }
+        
+        async function translateCode() {
+            const code = document.getElementById('sourceCode').value;
+            const srcLang = document.getElementById('sourceLanguage').value;
+            const tgtLang = document.getElementById('targetLanguage').value;
+            const output = document.getElementById('translatedCode');
+            
+            if (!code.trim()) { showStatus('error', 'Please enter source code'); return; }
+            if (srcLang === tgtLang) { showStatus('error', 'Languages must be different'); return; }
+            
+            output.value = 'Translating...';
+            showStatus('info', 'Translating code...');
+            
+            try {
+                const res = await fetch('http://127.0.0.1:5000/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_code: code, source_language: srcLang, target_language: tgtLang })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    translatedCode = data.translated_code;
+                    output.value = data.translated_code;
+                    
+                    setOutput('output-code', data.translated_code || 'No translation available');
+                    setOutput('output-alternatives', data.alternatives || 'No alternatives available');
+                    setOutput('output-explanation', data.explanation || 'No explanation available');
+                    
+                    if (data.pattern) {
+                        let patternText = '--- Pattern Mapping ---\n\n';
+                        patternText += 'Pattern: ' + (data.pattern.pattern || 'None detected') + '\n';
+                        patternText += 'Confidence: ' + ((data.pattern.confidence || 0) * 100).toFixed(0) + '%\n\n';
+                        if (data.pattern.alternatives) patternText += 'Alternative Patterns:\n' + data.pattern.alternatives + '\n\n';
+                        if (data.pattern.code_example) patternText += 'Code Example:\n' + data.pattern.code_example;
+                        setOutput('output-patterns', patternText);
+                    } else {
+                        setOutput('output-patterns', 'No patterns detected');
+                    }
+                    
+                    showStatus('success', '✓ Translation completed!');
+                } else {
+                    output.value = 'Translation failed';
+                    showStatus('error', 'Error: ' + data.error);
+                }
+            } catch (e) {
+                showStatus('error', 'Network error: ' + e.message);
+            }
+        }
+        
+        async function runCode() {
+            const srcLang = document.getElementById('sourceLanguage').value;
+            const tgtLang = document.getElementById('targetLanguage').value;
+            let code = '';
+            
+            if (tgtLang === 'Python' && translatedCode) code = translatedCode;
+            else if (srcLang === 'Python') code = document.getElementById('sourceCode').value;
+            else { showStatus('error', 'Can only run Python code'); return; }
+            
+            const execBox = document.getElementById('execution-output');
+            const execContent = document.getElementById('execution-content');
+            execBox.style.display = 'block';
+            execContent.innerHTML = '<span>Running...</span>';
+            
+            try {
+                const res = await fetch('http://127.0.0.1:5000/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    let html = '';
+                    if (data.result.stdout) html += '<span>' + escapeHtml(data.result.stdout) + '</span>';
+                    if (data.result.stderr) html += '<span class="stderr">' + escapeHtml(data.result.stderr) + '</span>';
+                    execContent.innerHTML = html || '<span>(No output)</span>';
+                }
+            } catch (e) {
+                execContent.innerHTML = '<span class="stderr">Error: ' + e.message + '</span>';
+            }
+        }
+        
+        async function runPlayground() {
+            const code = document.getElementById('playgroundCode').value;
+            const output = document.getElementById('playground-result');
+            
+            if (!code.trim()) { output.innerHTML = '<span class="stderr">Enter code first</span>'; return; }
+            
+            output.innerHTML = '<span>Running...</span>';
+            
+            try {
+                const res = await fetch('http://127.0.0.1:5000/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    let html = '';
+                    if (data.result.stdout) html += '<span>' + escapeHtml(data.result.stdout) + '</span>';
+                    if (data.result.stderr) html += '<span class="stderr">' + escapeHtml(data.result.stderr) + '</span>';
+                    output.innerHTML = html || '<span>(No output)</span>';
+                }
+            } catch (e) {
+                output.innerHTML = '<span class="stderr">Error: ' + e.message + '</span>';
+            }
+        }
+        
+        function copyCode() {
+            const code = document.getElementById('translatedCode').value;
+            if (code && code !== 'Translation will appear here...' && code !== 'Translating...' && code !== 'Translation failed') {
+                navigator.clipboard.writeText(code).then(() => showStatus('success', '✓ Copied!')).catch(() => showStatus('error', 'Copy failed'));
+            } else {
+                showStatus('error', 'Nothing to copy');
+            }
+        }
+        
+        document.getElementById('playgroundCode').value = '# Python Code\nprint("Hello World!")\nfor i in range(5):\n    print(i)';
+    </script>
+</body>
+</html>
+

@@ -595,6 +595,7 @@
         .playground-header i { color: var(--accent-emerald); font-size: 1.6rem; }
         .playground-header h2 { font-size: 1.4rem; font-weight: 700; }
         .playground-panel > p { color: var(--text-muted); margin-bottom: 20px; font-size: 1rem; }
+        #playgroundStdin { height: 80px; margin-top: 12px; resize: vertical; }
         
         @media (max-width: 1000px) {
             .code-grid { grid-template-columns: 1fr; }
@@ -777,10 +778,12 @@
             <div class="playground-panel">
                 <div class="playground-header">
                     <i class="fas fa-play-circle"></i>
-                    <h2>Live Python Playground</h2>
+                    <h2>Live Code Playground</h2>
                 </div>
-                <p>Write and run Python code instantly!</p>
-                <textarea id="playgroundCode" placeholder="# Write Python code here..."></textarea>
+                <p>Choose an installed language runtime, then run your code.</p>
+                <select id="playgroundLanguage" class="lang-select" aria-label="Playground language"></select>
+                <textarea id="playgroundCode" placeholder="# Write code here..."></textarea>
+                <textarea id="playgroundStdin" class="code-editor" placeholder="Optional standard input"></textarea>
                 <div class="main-buttons">
                     <button class="btn btn-run" onclick="runPlaygroundCode()"><i class="fas fa-play"></i> Run Code</button>
                 </div>
@@ -821,6 +824,17 @@ class Calculator:
 
     <script>
         let translatedCode = '';
+        let playgroundRuntimes = [];
+        const API_BASE_URL = '';
+
+        async function readApiJson(response) {
+            const body = await response.text();
+            try {
+                return JSON.parse(body);
+            } catch (error) {
+                throw new Error(`Backend returned an empty or invalid response (HTTP ${response.status}). Check that Flask is running on port 5000.`);
+            }
+        }
         
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -850,7 +864,7 @@ class Calculator:
             output.textContent = 'Generating documentation...';
             
             try {
-                const res = await fetch('http://127.0.0.1:5000/documentation', {
+                const res = await fetch('/documentation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ source_code: code })
@@ -927,7 +941,10 @@ class Calculator:
                 }
                 break;
             }
-            return code.replace(/\\_/g, '_');
+            code = code.replace(/\\_/g, '_');
+            return code
+                .replace(/^\s*#\s*\(Demo mode\s*-\s*configure\s+HF\\?_API_TOKEN\s+for\s+real\s+translation\)\s*\r?\n?/gim, '')
+                .trim();
         }
         
         async function translateCode() {
@@ -943,7 +960,7 @@ class Calculator:
             showStatus('info', 'Translating code...');
             
             try {
-                const res = await fetch('http://127.0.0.1:5000/translate', {
+                const res = await fetch('/translate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ source_code: code, source_language: srcLang, target_language: tgtLang })
@@ -1030,11 +1047,14 @@ class Calculator:
         async function runTranslatedCode() {
             const srcLang = document.getElementById('sourceLanguage').value;
             const tgtLang = document.getElementById('targetLanguage').value;
-            let code = '';
-            
-            if (tgtLang === 'Python' && translatedCode) code = translatedCode;
-            else if (srcLang === 'Python') code = document.getElementById('sourceCode').value;
-            else { showStatus('error', 'Can only run Python code'); return; }
+            const code = translatedCode || document.getElementById('sourceCode').value;
+            const language = translatedCode ? tgtLang : srcLang;
+            const runtimeId = getRuntimeId(language);
+            const runtime = playgroundRuntimes.find(item => item.language === runtimeId || item.display_name === language);
+            if (!runtime) {
+                showStatus('error', `${language} runtime is unavailable. Configure Piston and install this runtime.`);
+                return;
+            }
             
             const execBox = document.getElementById('execution-output');
             const execContent = document.getElementById('execution-content');
@@ -1042,18 +1062,18 @@ class Calculator:
             execContent.innerHTML = '<span>Running...</span>';
             
             try {
-                const res = await fetch('http://127.0.0.1:5000/run', {
+                const res = await fetch(`${API_BASE_URL}/run`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ code, language: runtime.language, version: runtime.version, stdin: document.getElementById('playgroundStdin').value })
                 });
-                const data = await res.json();
-                if (data.success) {
+                const data = await readApiJson(res);
+                if (data.success && data.result) {
                     let html = '';
                     if (data.result.stdout) html += '<span>' + escapeHtml(data.result.stdout) + '</span>';
                     if (data.result.stderr) html += '<span class="stderr">' + escapeHtml(data.result.stderr) + '</span>';
                     execContent.innerHTML = html || '<span>(No output)</span>';
-                }
+                } else { execContent.innerHTML = '<span class="stderr">' + escapeHtml(data.error || 'Execution failed') + '</span>'; }
             } catch (e) {
                 execContent.innerHTML = '<span class="stderr">Error: ' + e.message + '</span>';
             }
@@ -1062,29 +1082,50 @@ class Calculator:
         async function runPlaygroundCode() {
             const code = document.getElementById('playgroundCode').value;
             const output = document.getElementById('playground-result');
+            const selectedRuntime = document.getElementById('playgroundLanguage').value.split('|');
             
             if (!code.trim()) { output.innerHTML = '<span class="stderr">Enter code first</span>'; return; }
             
             output.innerHTML = '<span>Running...</span>';
             
             try {
-                const res = await fetch('http://127.0.0.1:5000/run', {
+                const res = await fetch(`${API_BASE_URL}/run`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ code, language: selectedRuntime[0], version: selectedRuntime[1], stdin: document.getElementById('playgroundStdin').value })
                 });
-                const data = await res.json();
-                if (data.success) {
+                const data = await readApiJson(res);
+                if (data.success && data.result) {
                     let html = '';
                     if (data.result.stdout) html += '<span>' + escapeHtml(data.result.stdout) + '</span>';
                     if (data.result.stderr) html += '<span class="stderr">' + escapeHtml(data.result.stderr) + '</span>';
                     output.innerHTML = html || '<span>(No output)</span>';
-                }
+                } else { output.innerHTML = '<span class="stderr">' + escapeHtml(data.error || 'Execution failed') + '</span>'; }
             } catch (e) {
                 output.innerHTML = '<span class="stderr">Error: ' + e.message + '</span>';
             }
         }
         
+        function getRuntimeId(language) {
+            return ({ 'C++': 'c++', 'C#': 'csharp' })[language] || language.toLowerCase();
+        }
+
+        async function loadPlaygroundRuntimes() {
+            const selector = document.getElementById('playgroundLanguage');
+            try {
+                const response = await fetch(`${API_BASE_URL}/runtimes`);
+                const data = await readApiJson(response);
+                if (!response.ok || !data.success) throw new Error(data.error || 'Could not load runtimes');
+                playgroundRuntimes = data.runtimes || [];
+                selector.innerHTML = playgroundRuntimes.map(runtime =>
+                    `<option value="${runtime.language}|${runtime.version}">${runtime.display_name} (${runtime.version})</option>`
+                ).join('');
+                if (!playgroundRuntimes.length) selector.innerHTML = '<option value="">No runtimes available</option>';
+            } catch (error) {
+                selector.innerHTML = '<option value="">Runtimes unavailable</option>';
+            }
+        }
+
         function copyCode() {
             const code = document.getElementById('translatedCode').value;
             if (code && code !== 'Translation will appear here...' && code !== 'Translating...' && code !== 'Translation failed') {
@@ -1095,6 +1136,7 @@ class Calculator:
         }
         
         document.getElementById('playgroundCode').value = '# Python Code\nprint("Hello World!")\nfor i in range(5):\n    print(i)';
+        loadPlaygroundRuntimes();
     </script>
 </body>
 </html>

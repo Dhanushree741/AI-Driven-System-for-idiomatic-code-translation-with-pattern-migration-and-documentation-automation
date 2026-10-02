@@ -1,11 +1,16 @@
-import os
+﻿import os
 import sys
 import logging
 from datetime import datetime
 from functools import wraps
+import requests
 
 # include workspace root on path so translator package (sitting alongside backend/) is discoverable
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+for import_path in (PROJECT_ROOT, BACKEND_DIR):
+    if import_path not in sys.path:
+        sys.path.insert(0, import_path)
 
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -23,7 +28,7 @@ from translator.doc_prompt_generator import build_prompt
 from run_in_sandbox import execute_python
 
 # Load environment variables
-env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+env_path = os.path.join(PROJECT_ROOT, ".env")
 load_dotenv(env_path)
 
 # Configure logging
@@ -44,6 +49,12 @@ SUPPORTED_LANGUAGES = [
 
 # Configuration
 MAX_CODE_LENGTH = int(os.getenv("MAX_CODE_LENGTH", 10000))
+PISTON_URL = os.getenv("PISTON_URL", "").strip().rstrip("/")
+PLAYGROUND_LANGUAGES = {
+    "python": "Python", "javascript": "JavaScript", "typescript": "TypeScript",
+    "java": "Java", "cpp": "C++", "c++": "C++", "csharp": "C#", "go": "Go", "rust": "Rust",
+    "ruby": "Ruby", "php": "PHP", "swift": "Swift", "kotlin": "Kotlin", "scala": "Scala",
+}
 
 # Initialize model client
 try:
@@ -238,7 +249,7 @@ def translate():
                 logger.error(f"Module 3 parse error: {e}")
             
             # Generate demo translation based on simple patterns
-            demo_translation = f"# Translated from {src_lang} to {tgt_lang}\n# (Demo mode - configure HF_API_TOKEN for real translation)\n\n{source_code}"
+            demo_translation = source_code
             
             # Extract explanation from Module 3 if available
             demo_explanation = module3_result.get("explanation", "") if module3_result else ""
@@ -254,7 +265,7 @@ def translate():
                     for alt in demo_alternatives if alt.get('code')
                 ])
             else:
-                demo_alternatives_str = f"# Alternative implementation in {tgt_lang}\n# (Demo mode - configure HF_API_TOKEN for real alternatives)\n\n{source_code}"
+                demo_alternatives_str = source_code
             
             # Extract patterns from Module 3
             pattern_result = None
@@ -538,7 +549,7 @@ def generate_docs():
 
 @app.route("/run", methods=["POST"])
 def run_code():
-    """Execute Python code in sandbox"""
+    """Execute code in the configured sandbox, or use the local Python runner."""
     try:
         data = request.json
         
@@ -549,6 +560,9 @@ def run_code():
             }), 400
             
         code = data.get("code")
+        language = str(data.get("language", "python")).strip().lower()
+        version = str(data.get("version", "*")).strip() or "*"
+        stdin = data.get("stdin", "")
         
         if not code:
             return jsonify({
@@ -561,15 +575,66 @@ def run_code():
                 "success": False,
                 "error": "code must be a string"
             }), 400
+
+        if not isinstance(stdin, str):
+            return jsonify({"success": False, "error": "stdin must be a string"}), 400
+        if len(stdin) > MAX_CODE_LENGTH:
+            return jsonify({"success": False, "error": f"Standard input exceeds the {MAX_CODE_LENGTH} character limit"}), 413
+        if len(code) > MAX_CODE_LENGTH:
+            return jsonify({"success": False, "error": f"Code exceeds the {MAX_CODE_LENGTH} character limit"}), 413
+        if PISTON_URL:
+            runtime_response = requests.get(f"{PISTON_URL}/api/v2/runtimes", timeout=5)
+            runtime_response.raise_for_status()
+            if not any(
+                str(runtime.get("language", "")).lower() == language
+                and (version == "*" or str(runtime.get("version", "")) == version)
+                for runtime in runtime_response.json()
+            ):
+                return jsonify({"success": False, "error": "That language runtime is not installed"}), 400
+        elif language != "python":
+            return jsonify({"success": False, "error": "Multi-language execution is not configured. Set PISTON_URL to a self-hosted Piston service."}), 503
             
-        logger.info(f"Executing code ({len(code)} chars)")
-        result = execute_python(code)
+        logger.info("Executing %s code (%s chars)", language, len(code))
+        if PISTON_URL:
+            response = requests.post(
+                f"{PISTON_URL}/api/v2/execute",
+                json={
+                    "language": language,
+                    "version": version,
+                    "files": [{"content": code}],
+                    "stdin": stdin,
+                    "run_timeout": 5000,
+                    "compile_timeout": 10000,
+                },
+                timeout=20,
+            )
+            response.raise_for_status()
+            piston_result = response.json()
+            run_result = piston_result.get("run") or {}
+            compile_result = piston_result.get("compile") or {}
+            result = {
+                "stdout": run_result.get("stdout", ""),
+                "stderr": "\n".join(part for part in [compile_result.get("stderr", ""), run_result.get("stderr", "")] if part),
+                "returncode": run_result.get("code", compile_result.get("code", 0)),
+                "language": piston_result.get("language", language),
+                "version": piston_result.get("version", version),
+            }
+        elif language == "python" and os.getenv("VERCEL") != "1":
+            result = execute_python(code, stdin=stdin)
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Code execution is disabled on deployment unless PISTON_URL is configured to use an isolated execution service.",
+            }), 503
         
         return jsonify({
             "success": True,
             "result": result
         })
         
+    except requests.RequestException as e:
+        logger.error("Execution service error: %s", e)
+        return jsonify({"success": False, "error": "Execution service is unavailable or rejected the request"}), 502
     except Exception as e:
         logger.error(f"Execution error: {e}", exc_info=True)
         return jsonify({
@@ -578,28 +643,51 @@ def run_code():
         }), 500
 
 
+@app.route("/runtimes", methods=["GET"])
+def get_playground_runtimes():
+    """Return installed Piston runtimes, or Python when using the local fallback."""
+    if not PISTON_URL:
+        return jsonify({"success": True, "runtimes": [{"language": "python", "display_name": "Python", "version": "local"}]})
+    try:
+        response = requests.get(f"{PISTON_URL}/api/v2/runtimes", timeout=5)
+        response.raise_for_status()
+        runtimes = []
+        for runtime in response.json():
+            runtime_id = str(runtime.get("language", "")).lower()
+            if runtime_id:
+                runtimes.append({
+                    "language": runtime_id,
+                    "display_name": PLAYGROUND_LANGUAGES.get(runtime_id, runtime_id.replace(".", " ").title()),
+                    "version": runtime.get("version", "*"),
+                })
+        return jsonify({"success": True, "runtimes": runtimes})
+    except (requests.RequestException, ValueError) as e:
+        logger.error("Unable to load Piston runtimes: %s", e)
+        return jsonify({"success": False, "error": "Could not load execution runtimes"}), 502
+
+
 @app.route("/", methods=["GET"])
 def root():
     """Serve the main application with translation and playground"""
-    return send_file("index.html")
+    return send_file(os.path.join(BACKEND_DIR, "index_new_v3.html"))
 
 
 @app.route("/playground", methods=["GET"])
 def playground():
     """Serve the playground HTML"""
-    return send_file("playground.html")
+    return send_file(os.path.join(BACKEND_DIR, "playground.html"))
 
 
 @app.route("/live", methods=["GET"])
 def live_playground():
     """Serve the live translator with playground"""
-    return send_file("index_live.html")
+    return send_file(os.path.join(BACKEND_DIR, "index_live.html"))
 
 
 @app.route("/new", methods=["GET"])
 def new_version():
     """Serve the new version with highlight tabs"""
-    return send_file("index_new_v3.html")
+    return send_file(os.path.join(BACKEND_DIR, "index_new_v3.html"))
 
 
 @app.errorhandler(404)
@@ -638,4 +726,7 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+
 

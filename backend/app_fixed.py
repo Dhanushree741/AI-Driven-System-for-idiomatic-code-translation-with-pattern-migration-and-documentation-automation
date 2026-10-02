@@ -100,11 +100,11 @@ def translate():
             logger.warning("Model client not available, returning demo response")
             
             # Generate demo translation based on simple patterns
-            demo_translation = f"# Translated from {src_lang} to {tgt_lang}\n# (Demo mode - configure HF_API_TOKEN for real translation)\n\n{source_code}"
+            demo_translation = source_code
             
             demo_explanation = f"This is a {src_lang} code snippet that would be translated to {tgt_lang}. To enable real translation, please configure your HuggingFace API key in the .env file."
             
-            demo_alternatives = f"# Alternative implementation in {tgt_lang}\n# (Demo mode - configure HF_API_TOKEN for real alternatives)\n\n{source_code}"
+            demo_alternatives = source_code
             
             # Try pattern detection even without API
             pattern_result = None

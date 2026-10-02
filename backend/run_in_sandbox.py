@@ -6,23 +6,24 @@ import sys
 DOCKER_IMAGE = "code-sandbox:latest"
 
 
-def execute_python(code: str):
+def execute_python(code: str, stdin: str = ""):
     """
     Execute Python code safely.
     Uses local execution (more reliable on Windows without Docker).
     """
-    return execute_python_local(code)
+    return execute_python_local(code, stdin)
 
 
-def execute_python_local(code: str):
+def execute_python_local(code: str, stdin: str = ""):
     """
     Execute Python code locally in a temporary file.
     """
     try:
         # Check if code uses input()
         uses_input = "input(" in code
+        mocked_input = uses_input and not stdin
         
-        if uses_input:
+        if mocked_input:
             # Replace input() with a version that returns default values
             # Detect if input() is used with int() and provide default values
             modified_code = '''
@@ -56,13 +57,14 @@ def input(prompt=""):
             [sys.executable, temp_path],
             capture_output=True,
             text=True,
+            input=stdin,
             timeout=10
         )
 
         os.remove(temp_path)
         
         stdout = result.stdout
-        if uses_input and stdout:
+        if mocked_input and stdout:
             stdout = "# Note: input() was mocked with empty values\n" + stdout
 
         return {

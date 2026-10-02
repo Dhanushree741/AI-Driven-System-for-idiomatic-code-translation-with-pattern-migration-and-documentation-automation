@@ -40,6 +40,25 @@
   color: #5c6370;
 }
 
+.playground select {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.stdin-editor {
+  width: 100%;
+  min-height: 70px;
+  margin-top: 12px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  resize: vertical;
+}
+
 .run-btn {
   margin-top: 20px;
   padding: 15px 40px;

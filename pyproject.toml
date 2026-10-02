@@ -1,0 +1,14 @@
+﻿[project]
+name = "code-translator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "flask",
+  "flask-cors",
+  "python-dotenv",
+  "requests",
+  "huggingface_hub",
+]
+
+[tool.vercel]
+entrypoint = "backend.app:app"

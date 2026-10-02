@@ -143,9 +143,28 @@
 
     <script type="text/babel">
         function Playground() {
+            const apiBaseUrl = "http://127.0.0.1:5000";
             const [code, setCode] = React.useState("print('Hello World!')\nprint(2 + 2)");
             const [output, setOutput] = React.useState("");
             const [loading, setLoading] = React.useState(false);
+            const [runtimes, setRuntimes] = React.useState([]);
+            const [runtimeChoice, setRuntimeChoice] = React.useState("");
+            const [stdin, setStdin] = React.useState("");
+
+            React.useEffect(() => {
+                fetch(`${apiBaseUrl}/runtimes`)
+                    .then(async response => {
+                        const data = await response.json();
+                        if (!response.ok) throw new Error(data.error || "Could not load runtimes");
+                        return data;
+                    })
+                    .then(data => {
+                        const available = data.success ? data.runtimes : [];
+                        setRuntimes(available);
+                        if (available.length) setRuntimeChoice(`${available[0].language}|${available[0].version}`);
+                    })
+                    .catch(() => setRuntimes([]));
+            }, []);
 
             const runCode = async () => {
                 if (!code.trim()) {
@@ -158,9 +177,11 @@
 
                 try {
                     const response = await axios.post(
-                        "http://127.0.0.1:5000/run",
-                        { code: code }
+                        `${apiBaseUrl}/run`,
+                        { code, language: runtimeChoice.split("|")[0], version: runtimeChoice.split("|")[1], stdin }
                     );
+
+                    if (!response.data.success) throw new Error(response.data.error || "Execution failed");
 
                     const result = response.data.result;
                     let outputText = "";
@@ -195,14 +216,29 @@
                     </div>
                     
                     <div className="playground-content">
-                        <textarea
+                            <label htmlFor="runtime-select">Language</label>
+                            <select id="runtime-select" value={runtimeChoice} onChange={e => setRuntimeChoice(e.target.value)} disabled={!runtimes.length || loading}>
+                                {runtimes.map(runtime => (
+                                    <option key={`${runtime.language}-${runtime.version}`} value={`${runtime.language}|${runtime.version}`}>
+                                        {runtime.display_name} ({runtime.version})
+                                    </option>
+                                ))}
+                            </select>
+                            {!runtimes.length && <p>Python works locally. Configure Piston to enable more languages.</p>}
+                            <textarea
                             className="code-editor"
-                            placeholder="Write Python code here..."
+                                placeholder="Write code here..."
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
                         />
+                        <textarea
+                            className="stdin-editor"
+                            placeholder="Optional standard input"
+                            value={stdin}
+                            onChange={(e) => setStdin(e.target.value)}
+                        />
 
-                        <button onClick={runCode} className="run-btn" disabled={loading}>
+                        <button onClick={runCode} className="run-btn" disabled={loading || !runtimeChoice}>
                             {loading ? "⏳ Running..." : "▶ Run Code"}
                         </button>
 
